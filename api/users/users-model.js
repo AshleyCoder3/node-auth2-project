@@ -14,12 +14,14 @@ function findBy(filter) {
 }
 
 function findById(user_id) {
-
-
+  return db('users as u') //from users as u
+    .select('u.user_id', 'u.username', 'r.role_name')//select u.user_id, u.username, r.role_name
+    .join('roles as r', 'u.role_id', '=', 'r.role_id')//join roles as r on u.role_id = r.role_id
+    .where('user_id', user_id)//where u.user_id = 1
+    .first();
   /**
     You will need to join two tables.
     Resolves to the user with the given user_id.
-
     {
       "user_id": 2,
       "username": "sue",
