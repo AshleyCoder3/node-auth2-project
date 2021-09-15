@@ -9,46 +9,50 @@ const Users = require('../users/users-model');
 
 router.post("/register",
   validateRoleName,
-  (req, res, next) => {
-    let user = req.body;
+  async (req, res, next) => {
+    let users = req.body;
     const rounds = process.env.BCRYPT_ROUNDS || 8; // 2 ^ 8
-    const hash = bcrypt.hashSync(user.password, rounds);
-    user.password = hash;
-    Users.add(user)
+    const hash = bcrypt.hashSync(users.password, rounds);
+    users.password = hash;
+    Users.add(users)
       .then(saved => {
         res.status(201).json(saved);
       })
       .catch(next);
+
   });
+
 
 
 router.post("/login",
   checkUsernameExists,
-  (req, res, next) => {
-    /**
-      [POST] /api/auth/login { "username": "sue", "password": "1234" }
-  
-      response:
-      status 200
-      {
-        "message": "sue is back!",
-        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ETC.ETC"
+  async (req, res, next) => {
+    try {
+      const { username, password } = req.body;
+      const [existingUser] = await Users.findBy({ username });
+
+      if (existingUser && bcrypt.compareSync(password, existingUser.password)) {
+        const token = tokenBuilder(existingUser);
+        res.status(200).json({
+          message: `${existingUser.username} is back!`,
+          token
+        });
+      } else {
+        next({
+          message: 'Invalid Credentials',
+          status: 401
+        });
       }
-  
-      The token must expire in one day, and must provide the following information
-      in its payload:
-  
-      {
-        "subject"  : 1       // the user_id of the authenticated user
-        "username" : "bob"   // the username of the authenticated user
-        "role_name": "admin" // the role of the authenticated user
-      }
-     */
+
+    } catch (err) {
+      next(err);
+    }
+
     function tokenBuilder(user) {
       const payload = {
-        subject: user.id,
+        subject: user.user_id,
         username: user.username,
-        role: user.role
+        role_name: user.role_name
       };
       const options = {
         expiresIn: '1d'
@@ -59,7 +63,7 @@ router.post("/login",
         options,
       );
       return token;
-    };
+    }
   });
 
 module.exports = router;
